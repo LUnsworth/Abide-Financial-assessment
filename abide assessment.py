@@ -13,17 +13,15 @@ def get_london(postcode_input):
     '''
     #Assumed that postcode is not in London. This value is added to counter in main.
     is_london = 0
-    #Disgusting way of doing it until regex's get sorted.
-    london_single = ['E0','E1','E2','E3','E4','E5','E6','E7','E8','E9',
-                     'N0','N1','N2','N3','N4','N5','N6','N7','N8','N9',
-                     'W0','W1','W2','W3','W4','W5','W6','W7','W8','W9',]
-    #The easy one...
-    london_double = ['EC','NW','SE','SW','WC']
+    #Not particularly elegant, but a list of all inner and outer london postcodes.
+    london_postcodes = ['BR','CR','DA','E0','E1','E2','E3','E4','E5',
+                        'E6','E7','E8','E9','EC','EN','GU','HA','IG',
+                        'KT','N0','N1','N2','N3','N4','N5','N6','N7',
+                        'N8','N9','NW','RM','SE','SL','SM','SW','TN',
+                        'TW','UB','W0','W1','W2','W3','W4','W5','W6',
+                        'W7','W8','W9','WC','WD']
     
-    for string in london_single:
-        if(postcode_input.startswith(string) == True):
-            is_london = 1
-    for string in london_double:
+    for string in london_postcodes:
         if(postcode_input.startswith(string) == True):
             is_london = 1
             
@@ -32,19 +30,12 @@ def get_london(postcode_input):
 
 def unique_postcode_builder(postcode_list, input_postcode):
 
-    inlist = False
     #strip out trailing whitespace from postcode.
     input_postcode.rstrip()
 
-    for i in postcode_list:
-        if(input_postcode == i[1]):
-            #Set flag indicating the postcode is already in the list.
-            inlist = True
-
-    if(inlist == False):
+    if((input_postcode in postcode_list) == False):
         #Append new postcode to the list.
-        #postcode_list.update({input_postcode:0.0})
-        postcode_list.append([0.0, input_postcode])
+        postcode_list.update({input_postcode:0.0})
                  
     return postcode_list
 
@@ -59,37 +50,16 @@ def postcode_finder(surgery_list, practice_code):
     return postcode
 
 
-def get_spend(postcode_list, postcode):
-    '''Retrieves current spending total for a postcode'''
-    current_spend = 0.0
-    for i in postcode_list:
-        if(postcode == i[1]):
-            current_spend = i[0]
-
-    return current_spend
-
-
-def update_spend(postcode_list, spend, postcode):
-    '''Updates the spend of a postcode'''
-
-    for i in postcode_list:
-        if(postcode == i[1]):
-            i[0] = spend
-
-    return postcode_list
-
-
 def extract_top(spend_list):
     '''Extracts top 5 spend postcodes and returns them in a list.'''
     topfive = []
-    for i in spend_list:
+    for postcode, spend in spend_list.items():
         if(len(topfive) < 6):
-            topfive.append(i)
-
+            topfive.append([spend, postcode])
         else:
             #Iterate over each postcode, placing each new one in position 6
             #sorting the list afterwards. That way the top 5 is always preserved.
-            topfive[5] = i
+            topfive[5] = [spend, postcode]
 
         topfive.sort(reverse=True)                
 
@@ -99,11 +69,9 @@ def extract_top(spend_list):
 print("Please ensure that CSV's are in the same directory as the .py file.")
 input("Press any key to continue.")
 t0 = time()
-#Loading surgery list and pulling the number of 
 london_counter = 0
 surgery_list = []
-#postcode_spend = {}
-postcode_spend = []
+postcode_spend = {}
 inp = ''
 
 #For easy testing purposes, have the file path as a variable.
@@ -114,6 +82,7 @@ else:
     filestring = 'testsurg1.csv'
     
 print("Loading and analysing surgery file.")
+
 with open(filestring) as csvfile:
     reader = csv.DictReader(csvfile, fieldnames = ("List code","UID","Add1","Add2"
                                                    ,"Add3","City","County","Postcode"))
@@ -147,14 +116,20 @@ with open(filestring) as csvfile:
         if(row['BNF CODE'] == '0102000T0'):
             total_units += int(row['ITEMS  '])
             cost += (float(row['ACT COST   ']))
+
+        #Get the Practice IDs postcode from the list.
         postcode = postcode_finder(surgery_list, row['PRACTICE'])
+    
         if(postcode != ''):
-            temp = get_spend(postcode_spend, postcode) + float(row['ACT COST   '])
-            postcode_spend = update_spend(postcode_spend, temp, postcode)
+            #If the postcode grab was successful, increment the spending.
+            temp = postcode_spend[postcode] + float(row['ACT COST   '])
+            postcode_spend[postcode] = temp
         else:
+            #Otherwise keep track of unknown practice IDs.
             unknown_id += 1
 
 top_postcodes = []
+#Extract the top 5 spending postcodes.
 top_postcodes = extract_top(postcode_spend)
 
 print("Complete.")
