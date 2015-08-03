@@ -2,10 +2,10 @@
 # 1. How many surgeries in London.
 # 2. Average cost of all peppermint oil prescriptions.
 # 3. 5 Postcodes have the highest actual spend.
-# 4. Make it up. Possibly look at cost of diabetes treatment.
+# 4. a) What was the average spend per capita in each postcode district?
+# 4. b) Is there an appreciable difference between the N/E/S/W of England?
 #
 import csv
-import re
 from time import time
 
 def get_london(postcode_input):
@@ -20,7 +20,7 @@ def get_london(postcode_input):
                         'N8','N9','NW','RM','SE','SL','SM','SW','TN',
                         'TW','UB','W0','W1','W2','W3','W4','W5','W6',
                         'W7','W8','W9','WC','WD']
-    
+    #IMPROVE THIS WITH STRING SLICING.
     for string in london_postcodes:
         if(postcode_input.startswith(string) == True):
             is_london = 1
@@ -54,20 +54,24 @@ def extract_top(spend_list):
     '''Extracts top 5 spend postcodes and returns them in a list.'''
     topfive = []
     for postcode, spend in spend_list.items():
-        if(len(topfive) < 6):
+        if(len(topfive) < 5):
             topfive.append([spend, postcode])
         else:
             #Iterate over each postcode, placing each new one in position 6
             #sorting the list afterwards. That way the top 5 is always preserved.
-            topfive[5] = [spend, postcode]
+            topfive.append([spend, postcode])
 
-        topfive.sort(reverse=True)                
+            #Sort the list in descending order.
+            topfive.sort(reverse=True)                
 
+            #Clear out the 6th position used in the sorting method.
+            topfive.pop()
+        
     return topfive
 
 #MAIN. Start of the program flow.
 print("Please ensure that CSV's are in the same directory as the .py file.")
-input("Press any key to continue.")
+input("Press Enter to continue.")
 t0 = time()
 london_counter = 0
 surgery_list = []
@@ -93,13 +97,14 @@ with open(filestring) as csvfile:
         postcode_spend = unique_postcode_builder(postcode_spend, row['Postcode'])
 
 print("Complete.")
-print("Surgeries in London: ", london_counter)
 
 total_units = 0
 cost = 0
 postcode = ''
-unknown_id = 0
+unknown_id = []
 temp = 0
+previd = ''
+prevpost = ''
 
 inp = input("1 for full, 2 for test:")
 if(inp == '1'):
@@ -107,7 +112,7 @@ if(inp == '1'):
 else:
     filestring = 'testledg1.csv'
     
-print("Loading and analysing purchase ledgers.")
+print("Loading and analysing purchase ledgers, I'd pop the kettle on...")
 with open(filestring) as csvfile:
     reader = csv.DictReader(csvfile)
 
@@ -117,8 +122,9 @@ with open(filestring) as csvfile:
             total_units += int(row['ITEMS  '])
             cost += (float(row['ACT COST   ']))
 
-        #Get the Practice IDs postcode from the list.
-        postcode = postcode_finder(surgery_list, row['PRACTICE'])
+        if(row['PRACTICE'] != previd):
+            #Get the Practice ID's postcode from the list.
+            postcode = postcode_finder(surgery_list, row['PRACTICE'])
     
         if(postcode != ''):
             #If the postcode grab was successful, increment the spending.
@@ -126,17 +132,50 @@ with open(filestring) as csvfile:
             postcode_spend[postcode] = temp
         else:
             #Otherwise keep track of unknown practice IDs.
-            unknown_id += 1
+            if((row['PRACTICE'] in unknown_id) == False):
+                unknown_id.append(row['PRACTICE'])
+
+        #Set current Practice ID for the next pass.
+        previd = row['PRACTICE']
+        prevpost = postcode
 
 top_postcodes = []
 #Extract the top 5 spending postcodes.
 top_postcodes = extract_top(postcode_spend)
 
-print("Complete.")
-print("Number of peppermint prescriptions: ", total_units,
-      " Total cost: £%.2f Average unit cost: £%.2f"% (cost, (cost/total_units)))
-print("Number of unknown Practice IDs:", unknown_id)
-print("Top 5 spending postcodes")
-for i in range(0,len(top_postcodes) - 1):
-    print(top_postcodes[i][1],"with a spend of £%.2f" % (top_postcodes[i][0]))
-print("Time taken:", time()-t0)
+print("Complete.\n")
+print("Answers to questions can be found in /answers.txt.\n")
+
+with open('answers.txt',mode='w') as outfile:
+    #Answer to Q1 output.
+    outfile.write("1. Surgeries in London: %d\n" % london_counter)
+
+    #Answer to Q2 output.
+    outfile.write("2. Average actual cost of peppermint oil prescriptions: £%.2f\n"
+                  % (cost/total_units))
+
+    #Answer to Q3 output, with bonus information.
+    outfile.write("3. Top 5 spending postcodes:\n")
+    for i in top_postcodes:
+        outfile.write("%s with a spend of £%.2f\n" % (i[1],i[0]))
+
+    #Answer to Q4 output.
+    #blahblahblah.
+
+
+if(len(unknown_id) != 0):
+    print("Number of unknown Practice IDs:", len(unknown_id),
+          "\nFull list output to unknownid.txt.")
+    
+    outfile = open('unknownid.txt',mode='w',)
+    for i in unknown_id:
+        outfile.write(i+"\n")
+    outfile.close()
+'''
+replist.sort()
+print("Average repeat:", (sum(replist) / len(replist)))
+print("Range:", (replist[len(replist)-1] - replist[0]))
+'''
+
+#For tracking purpose, output time taken in decimal hours.
+print("Time taken:", (time()-t0))#/3600)
